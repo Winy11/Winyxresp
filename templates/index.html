@@ -45,8 +45,8 @@
         <input type="text" name="channel_id" value="{{ settings.channel_id }}" placeholder="@channel1, @channel2, -1001234567890">
       </label>
       <label>
-        Interval (milliseconds) <span style="color:var(--muted);font-weight:normal">— e.g. 5000 = 5 sec, 60000 = 1 min</span>
-        <input type="number" min="1" name="interval_seconds" value="{{ settings.interval_seconds }}">
+        Interval (seconds) <span style="color:var(--muted);font-weight:normal">— e.g. 60 = 1 min, 3600 = 1 hour</span>
+        <input type="number" min="1" name="interval_seconds" value="{{ (settings.interval_seconds | int) // 1000 }}">
       </label>
       <label class="checkbox">
         <input type="checkbox" name="autopost_enabled" {% if settings.autopost_enabled == '1' %}checked{% endif %}>
