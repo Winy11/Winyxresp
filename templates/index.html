@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Telegram Auto Poster</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>📢 Telegram Auto Poster</h1>
+    <p class="tagline">Hourly posting · message rotation · scheduling</p>
+  </div>
+  <div class="status">
+    <div class="badge {{ 'ok' if bot_configured else 'warn' }}">
+      Bot: {{ 'connected' if bot_configured else 'TELEGRAM_BOT_TOKEN missing' }}
+    </div>
+    <div class="badge {{ 'ok' if active_channel else 'warn' }}">
+      {% if channel_count > 1 %}Channels ({{ channel_count }}): {{ active_channel }}
+      {% else %}Channel: {{ active_channel or 'not set' }}{% endif %}
+    </div>
+    <div class="badge">
+      Next run: {{ next_run or '—' }}
+    </div>
+  </div>
+</header>
+
+{% with msgs = get_flashed_messages(with_categories=true) %}
+  {% if msgs %}
+    <div class="flash-stack">
+      {% for category, message in msgs %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<main>
+  <section class="card">
+    <h2>Settings</h2>
+    <form method="post" action="{{ url_for('update_settings') }}" class="grid">
+      <label>
+        Channel(s) / Chat IDs <span style="color:var(--muted);font-weight:normal">— comma-separated for multi-channel</span>
+        <input type="text" name="channel_id" value="{{ settings.channel_id }}" placeholder="@channel1, @channel2, -1001234567890">
+      </label>
+      <label>
+        Interval (milliseconds) <span style="color:var(--muted);font-weight:normal">— e.g. 5000 = 5 sec, 60000 = 1 min</span>
+        <input type="number" min="1" name="interval_seconds" value="{{ settings.interval_seconds }}">
+      </label>
+      <label class="checkbox">
+        <input type="checkbox" name="autopost_enabled" {% if settings.autopost_enabled == '1' %}checked{% endif %}>
+        Enable auto-posting
+      </label>
+      <div class="actions">
+        <button type="submit" class="primary">Save settings</button>
+        <form method="post" action="{{ url_for('trigger_post_now') }}" style="display:inline">
+          <button type="submit" class="ghost">Post now</button>
+        </form>
+      </div>
+    </form>
+    {% if not bot_configured %}
+      <p class="hint">Set <code>TELEGRAM_BOT_TOKEN</code> in your environment to enable posting. Get a token from <a href="https://t.me/BotFather" target="_blank">@BotFather</a>.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Message rotation <span class="count">{{ messages|length }}</span></h2>
+    <form method="post" action="{{ url_for('add_message') }}" class="row">
+      <textarea name="text" placeholder="Write a message to add to the rotation…" required></textarea>
+      <button type="submit" class="primary">Add message</button>
+    </form>
+    {% if messages %}
+      <ul class="list">
+        {% for m in messages %}
+          <li class="item {{ 'disabled' if not m.enabled }}">
+            <details>
+              <summary>
+                <span class="meta">#{{ m.id }} · posted {{ m.times_posted }}× · {{ 'enabled' if m.enabled else 'disabled' }}</span>
+                <span class="preview">{{ m.text[:120] }}{{ '…' if m.text|length > 120 else '' }}</span>
+              </summary>
+              <form method="post" action="{{ url_for('edit_message', msg_id=m.id) }}">
+                <textarea name="text">{{ m.text }}</textarea>
+                <div class="actions">
+                  <button type="submit" class="primary">Save</button>
+                </div>
+              </form>
+              <div class="actions">
+                <form method="post" action="{{ url_for('toggle_message', msg_id=m.id) }}" style="display:inline">
+                  <button type="submit" class="ghost">{{ 'Disable' if m.enabled else 'Enable' }}</button>
+                </form>
+                <form method="post" action="{{ url_for('delete_message', msg_id=m.id) }}" style="display:inline" onsubmit="return confirm('Delete this message?')">
+                  <button type="submit" class="danger">Delete</button>
+                </form>
+              </div>
+            </details>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="empty">No messages yet — add one above to start the rotation.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Scheduled posts <span class="count">{{ posts|length }}</span></h2>
+    <form method="post" action="{{ url_for('add_scheduled') }}" class="row">
+      <textarea name="text" placeholder="One-off post text…" required></textarea>
+      <input type="datetime-local" name="run_at" required>
+      <button type="submit" class="primary">Schedule</button>
+    </form>
+    {% if posts %}
+      <table>
+        <thead><tr><th>When (UTC)</th><th>Status</th><th>Text</th><th></th></tr></thead>
+        <tbody>
+          {% for p in posts %}
+            <tr>
+              <td>{{ p.run_at.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td><span class="pill {{ p.status }}">{{ p.status }}</span></td>
+              <td class="trunc">{{ p.text[:80] }}{{ '…' if p.text|length > 80 else '' }}</td>
+              <td>
+                <form method="post" action="{{ url_for('delete_scheduled', post_id=p.id) }}" onsubmit="return confirm('Remove this scheduled post?')">
+                  <button type="submit" class="danger small">Remove</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="empty">No scheduled posts.</p>
+    {% endif %}
+  </section>
+</main>
+
+<footer>
+  <small>All times in UTC. Bot powered by python-telegram-bot &middot; APScheduler.</small>
+</footer>
+</body>
+</html>
