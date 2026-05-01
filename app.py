@@ -136,7 +136,7 @@ def update_settings():
 
     Setting.set("channel_id", channel)
     try:
-        interval = max(1, int(interval_seconds))  # stored as milliseconds
+        interval = max(1, int(interval_seconds)) * 1000  # user enters seconds, stored as milliseconds
     except ValueError:
         interval = 3600000
     Setting.set("interval_seconds", str(interval))
